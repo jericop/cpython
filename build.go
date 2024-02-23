@@ -1,6 +1,7 @@
 package cpython
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -9,7 +10,7 @@ import (
 	"github.com/paketo-buildpacks/packit/v2/cargo"
 	"github.com/paketo-buildpacks/packit/v2/chronos"
 	"github.com/paketo-buildpacks/packit/v2/draft"
-	"github.com/paketo-buildpacks/packit/v2/fs"
+	packit_fs "github.com/paketo-buildpacks/packit/v2/fs"
 	"github.com/paketo-buildpacks/packit/v2/postal"
 	"github.com/paketo-buildpacks/packit/v2/sbom"
 	"github.com/paketo-buildpacks/packit/v2/scribe"
@@ -17,6 +18,7 @@ import (
 
 //go:generate faux --interface DependencyManager --output fakes/dependency_manager.go
 //go:generate faux --interface PythonInstaller --output fakes/installer.go
+//go:generate faux --interface PythonPipCleanup --output fakes/pip_cleanup.go
 //go:generate faux --interface SBOMGenerator --output fakes/sbom_generator.go
 
 // DependencyManager defines the interface for picking the best matching
@@ -38,6 +40,11 @@ type PythonInstaller interface {
 	) error
 }
 
+// PythonPipCleanup defines the interface for cleaning up pip after a python installation
+type PythonPipCleanup interface {
+	Cleanup(packages []string, targetLayer string, targetLayerBinFs fs.FS, pipGlobPattern string) error
+}
+
 type SBOMGenerator interface {
 	GenerateFromDependency(dependency postal.Dependency, dir string) (sbom.SBOM, error)
 }
@@ -51,6 +58,7 @@ type SBOMGenerator interface {
 func Build(
 	dependencies DependencyManager,
 	pythonInstaller PythonInstaller,
+	pipCleanup PythonPipCleanup,
 	sbomGenerator SBOMGenerator,
 	logger scribe.Emitter,
 	clock chronos.Clock,
@@ -181,6 +189,19 @@ func Build(
 			duration = downloadDuration
 		}
 
+		pipCleanupDuration, err := clock.Measure(func() error {
+			return pipCleanup.Cleanup(
+				pipPackagesToBeUninstalled(),
+				cpythonLayer.Path,
+				os.DirFS(filepath.Join(cpythonLayer.Path, "bin")),
+				"pip*",
+			)
+		})
+		if err != nil {
+			return packit.BuildResult{}, err
+		}
+		duration += pipCleanupDuration
+
 		logger.Action("Completed in %s", duration.Round(time.Millisecond))
 		logger.Break()
 
@@ -211,7 +232,7 @@ func Build(
 		cpythonLayer.SharedEnv.Default("PYTHONPATH", cpythonLayer.Path)
 		cpythonLayer.ExecD = []string{filepath.Join(context.CNBPath, "bin", "env")}
 
-		if exists, err := fs.Exists(filepath.Join(cpythonLayer.Path, "bin", "python")); err != nil {
+		if exists, err := packit_fs.Exists(filepath.Join(cpythonLayer.Path, "bin", "python")); err != nil {
 			return packit.BuildResult{}, err
 		} else if exists {
 			logger.Debug.Detail("bin/python already exists")

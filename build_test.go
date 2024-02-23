@@ -31,6 +31,7 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 		clock             chronos.Clock
 		dependencyManager *fakes.DependencyManager
 		pythonInstaller   *fakes.PythonInstaller
+		pipCleanup        *fakes.PythonPipCleanup
 		sbomGenerator     *fakes.SBOMGenerator
 		buffer            *bytes.Buffer
 		logEmitter        scribe.Emitter
@@ -108,7 +109,9 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 
 		pythonInstaller = &fakes.PythonInstaller{}
 
-		build = cpython.Build(dependencyManager, pythonInstaller, sbomGenerator, logEmitter, clock)
+		pipCleanup = &fakes.PythonPipCleanup{}
+
+		build = cpython.Build(dependencyManager, pythonInstaller, pipCleanup, sbomGenerator, logEmitter, clock)
 
 	})
 
@@ -512,6 +515,17 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 			it("returns an error", func() {
 				_, err := build(buildContext)
 				Expect(err).To(MatchError("failed to install dependency"))
+			})
+		})
+
+		context("when pip cleanup fails", func() {
+			it.Before(func() {
+				pipCleanup.CleanupCall.Returns.Error = errors.New("failed to uninstall pip package")
+			})
+
+			it("returns an error", func() {
+				_, err := build(buildContext)
+				Expect(err).To(MatchError("failed to uninstall pip package"))
 			})
 		})
 

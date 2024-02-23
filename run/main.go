@@ -27,6 +27,11 @@ func main() {
 		pexec.NewExecutable("make"),
 		logger,
 	)
+	pipCleanup := cpython.NewPipCleanup(
+		pexec.NewExecutable("python3"),
+		cpython.PipExecutableDeleter{},
+		logger,
+	)
 	sbomGenerator := Generator{}
 
 	packit.Run(
@@ -34,6 +39,7 @@ func main() {
 		cpython.Build(
 			dependencies,
 			pythonSourceInstaller,
+			pipCleanup,
 			sbomGenerator,
 			logger,
 			chronos.DefaultClock),
