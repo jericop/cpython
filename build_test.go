@@ -206,6 +206,7 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 
 		// Pre-compiled binary installation does not call pythonInstaller.Install
 		Expect(pythonInstaller.InstallCall.CallCount).To(Equal(0))
+		Expect(pipCleanup.CleanupCall.CallCount).To(Equal(0))
 	})
 
 	it("returns a result that compiles and installs python from source", func() {
@@ -225,6 +226,7 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(pythonInstaller.InstallCall.CallCount).To(Equal(1))
+		Expect(pipCleanup.CleanupCall.CallCount).To(Equal(0))
 
 		Expect(result.Layers).To(HaveLen(1))
 		layer := result.Layers[0]
@@ -444,6 +446,26 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 		})
 	})
 
+	context("when the BP_CPYTHON_RM_SETUPTOOLS env var is set", func() {
+		it.Before(func() {
+			t.Setenv("BP_CPYTHON_RM_SETUPTOOLS", "value-is-ignored")
+		})
+
+		it("pip cleanup is called", func() {
+			_, err := build(buildContext)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipCleanup.CleanupCall.CallCount).To(Equal(1))
+		})
+	})
+
+	context("when the BP_CPYTHON_RM_SETUPTOOLS env var is not set", func() {
+		it("pip cleanup is not called", func() {
+			_, err := build(buildContext)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipCleanup.CleanupCall.CallCount).To(Equal(0))
+		})
+	})
+
 	context("failure cases", func() {
 		context("when the dependency cannot be resolved", func() {
 			it.Before(func() {
@@ -518,14 +540,21 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
-		context("when pip cleanup fails", func() {
+		context("when the BP_CPYTHON_RM_SETUPTOOLS env var is set", func() {
 			it.Before(func() {
-				pipCleanup.CleanupCall.Returns.Error = errors.New("failed to uninstall pip package")
+				t.Setenv("BP_CPYTHON_RM_SETUPTOOLS", "value-is-ignored")
 			})
 
-			it("returns an error", func() {
-				_, err := build(buildContext)
-				Expect(err).To(MatchError("failed to uninstall pip package"))
+			context("pip cleanup call fails with error", func() {
+				it.Before(func() {
+					pipCleanup.CleanupCall.Returns.Error = errors.New("failed to uninstall pip package")
+				})
+
+				it("returns an error", func() {
+					_, err := build(buildContext)
+					Expect(pipCleanup.CleanupCall.CallCount).To(Equal(1))
+					Expect(err).To(MatchError("failed to uninstall pip package"))
+				})
 			})
 		})
 

@@ -190,12 +190,15 @@ func Build(
 		}
 
 		pipCleanupDuration, err := clock.Measure(func() error {
-			return pipCleanup.Cleanup(
-				pipPackagesToBeUninstalled(),
-				cpythonLayer.Path,
-				os.DirFS(filepath.Join(cpythonLayer.Path, "bin")),
-				"pip*",
-			)
+			if _, ok := os.LookupEnv("BP_CPYTHON_RM_SETUPTOOLS"); ok {
+				return pipCleanup.Cleanup(
+					pipPackagesToBeUninstalled(),
+					cpythonLayer.Path,
+					os.DirFS(filepath.Join(cpythonLayer.Path, "bin")),
+					"pip*",
+				)
+			}
+			return nil
 		})
 		if err != nil {
 			return packit.BuildResult{}, err
