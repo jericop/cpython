@@ -271,5 +271,96 @@ func testDefault(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when the BP_CPYTHON_RM_SETUPTOOLS environment variable is set", func() {
+			var tmpDir string
+
+			it.Before(func() {
+				var err error
+				tmpDir, err = os.MkdirTemp("", "container-mounted-directory")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(os.Chmod(tmpDir, os.ModePerm)).To(Succeed())
+			})
+
+			it.After(func() {
+				Expect(os.RemoveAll(tmpDir)).To(Succeed())
+			})
+
+			it("builds with the defaults and setuptools is not installed and there is no broken pip3 executable", func() {
+				var err error
+				var logs fmt.Stringer
+				image, logs, err = pack.WithNoColor().Build.
+					WithPullPolicy("never").
+					WithBuildpacks(
+						settings.Buildpacks.Cpython.Online,
+						settings.Buildpacks.BuildPlan.Online,
+					).
+					WithEnv(map[string]string{
+						"BP_CPYTHON_RM_SETUPTOOLS": "value-is-ignored",
+					}).
+					Execute(name, source)
+				Expect(err).ToNot(HaveOccurred(), logs.String)
+
+				container, err = docker.Container.Run.
+					WithCommand("python3 server.py").
+					WithEnv(map[string]string{"PORT": "8080"}).
+					WithPublish("8080").
+					Execute(image.ID)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(container).Should(BeAvailable())
+				Eventually(container).Should(Serve(ContainSubstring("hello world")).OnPort(8080))
+
+				// check that setuptools is not installed.
+				// since we cannot get the return code, echo a string that we can search for if the command fails
+				container2, err := docker.Container.Run.
+					WithCommand("python3 -m pip show setuptools || echo not-installed").
+					Execute(image.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() string {
+					cLogs, err := docker.Container.Logs.Execute(container2.ID)
+					Expect(err).NotTo(HaveOccurred())
+					return cLogs.String()
+				}).Should(ContainSubstring("not-installed"))
+
+				Expect(docker.Container.Remove.Execute(container2.ID)).To(Succeed())
+
+				// check if a pip3 executable is on the path and save output to a file in the mount directory
+				container2, err = docker.Container.Run.
+					WithMounts(
+						fmt.Sprintf("type=bind,source=%s,destination=/mnt", tmpDir),
+					).
+					WithCommand("which pip3 > /mnt/which.pip.out").
+					Execute(image.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() error {
+					_, err := os.Stat(filepath.Join(tmpDir, "which.pip.out"))
+					return err
+				}).Should(BeNil())
+
+				Expect(docker.Container.Remove.Execute(container2.ID)).To(Succeed())
+
+				contents, err := os.ReadFile(filepath.Join(tmpDir, "which.pip.out"))
+				Expect(err).NotTo(HaveOccurred())
+
+				// if a pip3 executable exists on that path, verify that it actually works
+				if len(contents) > 0 {
+					// since we cannot get the return code, echo a string that we can search for if the command succeeds
+					container2, err = docker.Container.Run.
+						WithCommand("pip3 --version && echo pip-executable-works").
+						Execute(image.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(func() string {
+						cLogs, err := docker.Container.Logs.Execute(container2.ID)
+						Expect(err).NotTo(HaveOccurred())
+						return cLogs.String()
+					}).Should(ContainSubstring("pip-executable-works"))
+
+					Expect(docker.Container.Remove.Execute(container2.ID)).To(Succeed())
+				}
+			})
+		})
 	})
 }
