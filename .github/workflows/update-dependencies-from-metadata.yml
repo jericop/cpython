@@ -369,6 +369,8 @@ jobs:
       - name: Show git diff
         run: |
           git diff
+          echo 'buildpack.toml file contents:'
+          cat "${{ github.workspace }}/buildpack.toml"
 
       # - name: Commit
       #   id: commit
