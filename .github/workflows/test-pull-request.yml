@@ -17,13 +17,13 @@ jobs:
     outputs:
       builders: ${{ steps.builders.outputs.builders }}
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
-        go-version: 'stable'
-
-    - name: Checkout
-      uses: actions/checkout@v4
+        go-version-file: go.mod
 
     - name: Run Unit Tests
       env:
@@ -51,7 +51,7 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
-        go-version: 'stable'
+        go-version-file: go.mod
 
     - name: Checkout
       uses: actions/checkout@v4
