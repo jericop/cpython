@@ -3,7 +3,7 @@ name: Update Dependencies From Metadata (Retrieve, Metadata, Compile, Test, Crea
 on:
   workflow_dispatch:
   schedule:
-    - cron: '57 13 * * *' # daily at 13:57 UTC
+    - cron: '57 13 * * *'  # daily at 13:57 UTC
 
 jobs:
   retrieve:
@@ -28,7 +28,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version-file: go.mod
 
       - name: Run Retrieve
         id: retrieve
@@ -192,11 +192,11 @@ jobs:
     with:
       version: "${{ matrix.includes.version }}"
       target: "${{ matrix.includes.target }}"
-      os: "${{ matrix.includes.os }}"
-      arch: "${{ matrix.includes.arch }}"
+      os: "${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}"
+      arch: "${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}"
       shouldCompile: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
       shouldTest: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' && needs.get-compile-and-test.outputs.should-test == 'true' }}
-      uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-${{ matrix.includes.target }}"
+      uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-${{ matrix.includes.target }}"
 
   # Add in the checksum and URI fields to the metadata if the dependency was compiled
   update-metadata:
@@ -217,7 +217,7 @@ jobs:
       - name: Download artifact files
         uses: actions/download-artifact@v4
         with:
-          name: '${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-${{ matrix.includes.target }}'
+          name: '${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-${{ matrix.includes.target }}'
 
       - name: Get artifact file name
         id: get-file-names
@@ -269,15 +269,15 @@ jobs:
           set -euo pipefail
           shopt -s inherit_errexit
 
-          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-metadata-file.json"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")'] > $metadata_file_name
+          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-metadata-file.json"
+          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}" and .arch == "${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}")'] > $metadata_file_name
           echo "file=$(echo $metadata_file_name)" >> "$GITHUB_OUTPUT"
           # TODO: remove these lines before PR
           echo "metadata_file_name=$metadata_file_name"
           echo "metadata.json file contents:"
           cat metadata.json
           echo "metadata_file_name $metadata_file_name file contents:"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")']
+          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}" and .arch == "${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}")']
 
       - name: Update `checksum` and `uri` in metadata for ${{ matrix.includes.target }} ${{ matrix.includes.version }}
         if: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
@@ -287,8 +287,8 @@ jobs:
         with:
           version: ${{ matrix.includes.version }}
           target: ${{ matrix.includes.target }}
-          os: ${{ matrix.includes.os }}
-          arch: ${{ matrix.includes.arch }}
+          os: ${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}
+          arch: ${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}
           checksum: ${{ steps.get-checksum.outputs.checksum }}
           uri: ${{ steps.upload.outputs.dependency-uri }}
           file: ${{ steps.dependency-metadata.outputs.file }}
