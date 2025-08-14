@@ -23,7 +23,7 @@ jobs:
       with:
         repository: paketo-buildpacks/github-config
         path: github-config
-        ref: use-go-mod-updated
+        ref: use-go-mod
 
     - name: Checkout Branch
       uses: paketo-buildpacks/github-config/actions/pull-request/checkout-branch@main
