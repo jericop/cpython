@@ -63,6 +63,17 @@ jobs:
           printf "compilation-json<<%s\n%s\n%s\n" "${delimiter}" "${compilation}" "${delimiter}" >> "$GITHUB_OUTPUT" # see https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
           echo "compilation-length=$complength" >> "$GITHUB_OUTPUT"
 
+          # TODO: remove this line before PR
+          echo "id=$id"
+          echo "length=$length"
+          echo "compilation-length=$complength"
+          echo "compilation-json:"
+          echo "${compilation}"
+          echo ""
+          echo "metadata.json file contents:"
+          cat "${OUTPUT}"
+          echo "metadata-filepath=${OUTPUT}"
+          printf "metadata-json<<%s\n%s\n%s\n" "${delimiter}" "${content}" "${delimiter}" >> "$GITHUB_OUTPUT" # see https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
 
       - name: Upload `${{ steps.retrieve.outputs.metadata-filepath }}`
         uses: actions/upload-artifact@v4
@@ -95,6 +106,8 @@ jobs:
           if test -d "dependency/actions/compile"; then
             echo "Compilation action provided"
             echo "should-compile=true" >> "$GITHUB_OUTPUT"
+            # TODO: remove this line before PR
+            echo "should-compile=true"
           fi
 
       - name: Has Testing Action?
@@ -103,6 +116,8 @@ jobs:
           if test -d "dependency/test"; then
             echo "Testing file provided"
             echo "should-test=true" >> "$GITHUB_OUTPUT"
+            # TODO: remove this line before PR
+            echo "should-test=true"
           fi
 
   test:
@@ -138,6 +153,9 @@ jobs:
           set -euo pipefail
           shopt -s inherit_errexit
 
+          # TODO: remove this line before PR
+          set -x
+
           curl ${{ matrix.includes.uri }} \
             --fail-with-body \
             --show-error \
@@ -151,6 +169,8 @@ jobs:
         working-directory: dependency
         if: ${{ needs.get-compile-and-test.outputs.should-test == 'true' }}
         run: |
+          # TODO: remove this line before PR
+          set -x
           make test \
             version="${{ matrix.includes.version }}" \
             tarballPath="${{ steps.make-outputdir.outputs.outputdir }}/*.tgz"
@@ -168,50 +188,15 @@ jobs:
     #   AND:
     #   (3) there is at least one version to compile/test
     if: ${{ needs.retrieve.outputs.compilation-length > 0 && (needs.get-compile-and-test.outputs.should-compile == 'true' || needs.get-compile-and-test.outputs.should-test == 'true') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Make Temporary Artifact Directory
-        id: make-outputdir
-        run: |
-          echo "outputdir=$(mktemp -d)" >> "$GITHUB_OUTPUT"
-
-      # Compile if all of the following conditions are met:
-      #   (1) compilation Github Action presetn in the buildpack directory
-      #   (2) checksum in metadata.json is empty
-      #   (3) URI in metadata.json is empty
-      - name: Compile version ${{ matrix.includes.version }} on ${{ matrix.includes.target }} Dockerfile
-        id: compile
-        if: ${{ needs.get-compile-and-test.outputs.should-compile && matrix.includes.checksum == '' && matrix.includes.uri == '' }}
-        uses: ./dependency/actions/compile
-        with:
-          version: "${{ matrix.includes.version }}"
-          outputdir: "${{ steps.make-outputdir.outputs.outputdir }}"
-          target: "${{ matrix.includes.target }}"
-
-      # If compiled, upload the tarball and checksum file for usage in the Update metadata job
-      - name: Upload workflow asset
-        uses: actions/upload-artifact@v4
-        if: ${{ needs.get-compile-and-test.outputs.should-compile && matrix.includes.checksum == '' && matrix.includes.uri == '' }}
-        with:
-          name: '${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.target }}'
-          path: '${{ steps.make-outputdir.outputs.outputdir }}/*'
-
-      # Test the dependency tarball if:
-      #   (1) dependency testing code is present in the buildpack directory
-      - name: Test Dependency
-        working-directory: dependency
-        if: ${{ needs.get-compile-and-test.outputs.should-test == 'true' }}
-        run: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-          shopt -s inherit_errexit
-
-          make test \
-            version="${{ matrix.includes.version }}" \
-            tarballPath="${{ steps.make-outputdir.outputs.outputdir }}/*.tgz"
+    uses: ./.github/workflows/compile-dependency.yml
+    with:
+      version: "${{ matrix.includes.version }}"
+      target: "${{ matrix.includes.target }}"
+      os: "${{ matrix.includes.os }}"
+      arch: "${{ matrix.includes.arch }}"
+      shouldCompile: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
+      shouldTest: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' && needs.get-compile-and-test.outputs.should-test == 'true' }}
+      uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-${{ matrix.includes.target }}"
 
   # Add in the checksum and URI fields to the metadata if the dependency was compiled
   update-metadata:
@@ -232,7 +217,7 @@ jobs:
       - name: Download artifact files
         uses: actions/download-artifact@v4
         with:
-          name: '${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.target }}'
+          name: '${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-${{ matrix.includes.target }}'
 
       - name: Get artifact file name
         id: get-file-names
@@ -244,16 +229,23 @@ jobs:
           echo "artifact-file=$(basename ./*.tgz)" >> "$GITHUB_OUTPUT"
           echo "checksum-file=$(basename ./*.tgz.checksum)" >> "$GITHUB_OUTPUT"
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_S3_DEPENDENCIES_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_S3_DEPENDENCIES_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          # TODO: remove these lines before PR
+          echo "artifact-file=$(basename ./*.tgz)"
+          echo "checksum-file=$(basename ./*.tgz.checksum)"
+
+      # TODO: uncomment before PR
+      # - name: Configure AWS Credentials
+      #   uses: aws-actions/configure-aws-credentials@v2
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_S3_DEPENDENCIES_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_S3_DEPENDENCIES_SECRET_ACCESS_KEY }}
+      #     aws-region: us-east-1
 
       - name: Upload to S3
         id: upload
-        uses: paketo-buildpacks/github-config/actions/dependency/upload-to-s3@main
+        # TODO: fix before PR
+        # uses: paketo-buildpacks/github-config/actions/dependency/upload-to-s3@main
+        uses: jericop/github-config/actions/dependency/upload-to-s3@mock-upload
         with:
           bucket-name: "paketo-buildpacks"
           dependency-name: ${{ needs.retrieve.outputs.id }}
@@ -277,16 +269,26 @@ jobs:
           set -euo pipefail
           shopt -s inherit_errexit
 
-          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-metadata-file.json"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}")'] > $metadata_file_name
+          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-metadata-file.json"
+          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")'] > $metadata_file_name
           echo "file=$(echo $metadata_file_name)" >> "$GITHUB_OUTPUT"
+          # TODO: remove these lines before PR
+          echo "metadata_file_name=$metadata_file_name"
+          echo "metadata.json file contents:"
+          cat metadata.json
+          echo "metadata_file_name $metadata_file_name file contents:"
+          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")']
 
       - name: Update `checksum` and `uri` in metadata for ${{ matrix.includes.target }} ${{ matrix.includes.version }}
         if: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
-        uses: paketo-buildpacks/github-config/actions/dependency/update-metadata-json@main
+        # TODO: fix before PR
+        # uses: paketo-buildpacks/github-config/actions/dependency/update-metadata-json@main
+        uses: jericop/github-config/actions/dependency/update-metadata-json@mock-upload
         with:
           version: ${{ matrix.includes.version }}
           target: ${{ matrix.includes.target }}
+          os: ${{ matrix.includes.os }}
+          arch: ${{ matrix.includes.arch }}
           checksum: ${{ steps.get-checksum.outputs.checksum }}
           uri: ${{ steps.upload.outputs.dependency-uri }}
           file: ${{ steps.dependency-metadata.outputs.file }}
@@ -351,10 +353,15 @@ jobs:
           shopt -s inherit_errexit
 
           jq -s 'add' ${{ steps.make-outputdir.outputs.outputdir }}/metadata-files/* > "${{ steps.make-outputdir.outputs.outputdir }}/metadata.json"
+          # TODO: remove these lines before PR
+          echo "Combined metadata.json file contents:"
+          cat "${{ steps.make-outputdir.outputs.outputdir }}/metadata.json"
 
       - name: Update dependencies from metadata.json
         id: update
-        uses: paketo-buildpacks/github-config/actions/dependency/update-from-metadata@main
+        # TODO: fix before PR
+        # uses: paketo-buildpacks/github-config/actions/dependency/update-from-metadata@main
+        uses: jericop/github-config/actions/dependency/update-from-metadata@mock-upload
         with:
           buildpack_toml_path: "${{ github.workspace }}/buildpack.toml"
           metadata_file_path: "${{ steps.make-outputdir.outputs.outputdir }}/metadata.json"
@@ -363,28 +370,28 @@ jobs:
         run: |
           git diff
 
-      - name: Commit
-        id: commit
-        uses: paketo-buildpacks/github-config/actions/pull-request/create-commit@main
-        with:
-          message: "Updating buildpack.toml with new versions ${{ steps.update.outputs.new-versions }}"
-          pathspec: "."
-          keyid: ${{ secrets.PAKETO_BOT_GPG_SIGNING_KEY_ID }}
-          key: ${{ secrets.PAKETO_BOT_GPG_SIGNING_KEY }}
+      # - name: Commit
+      #   id: commit
+      #   uses: paketo-buildpacks/github-config/actions/pull-request/create-commit@main
+      #   with:
+      #     message: "Updating buildpack.toml with new versions ${{ steps.update.outputs.new-versions }}"
+      #     pathspec: "."
+      #     keyid: ${{ secrets.PAKETO_BOT_GPG_SIGNING_KEY_ID }}
+      #     key: ${{ secrets.PAKETO_BOT_GPG_SIGNING_KEY }}
 
-      - name: Push Branch 'automation/dependencies/update-from-metadata'
-        if: ${{ steps.commit.outputs.commit_sha != '' }}
-        uses: paketo-buildpacks/github-config/actions/pull-request/push-branch@main
-        with:
-          branch: automation/dependencies/update-from-metadata
+      # - name: Push Branch 'automation/dependencies/update-from-metadata'
+      #   if: ${{ steps.commit.outputs.commit_sha != '' }}
+      #   uses: paketo-buildpacks/github-config/actions/pull-request/push-branch@main
+      #   with:
+      #     branch: automation/dependencies/update-from-metadata
 
-      - name: Open Pull Request
-        if: ${{ steps.commit.outputs.commit_sha != '' }}
-        uses: paketo-buildpacks/github-config/actions/pull-request/open@main
-        with:
-          token: ${{ secrets.PAKETO_BOT_GITHUB_TOKEN }}
-          title: "Updates buildpack.toml with ${{ steps.update.outputs.new-versions }}"
-          branch: automation/buildpack.toml/update-from-metadata
+      # - name: Open Pull Request
+      #   if: ${{ steps.commit.outputs.commit_sha != '' }}
+      #   uses: paketo-buildpacks/github-config/actions/pull-request/open@main
+      #   with:
+      #     token: ${{ secrets.PAKETO_BOT_GITHUB_TOKEN }}
+      #     title: "Updates buildpack.toml with ${{ steps.update.outputs.new-versions }}"
+      #     branch: automation/buildpack.toml/update-from-metadata
 
   failure:
     name: Alert on Failure
