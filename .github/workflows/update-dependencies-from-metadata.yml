@@ -218,7 +218,7 @@ jobs:
       - name: Download artifact files
         uses: actions/download-artifact@v4
         with:
-          name: '${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-${{ matrix.includes.target }}'
+          name: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-${{ matrix.includes.target }}"
 
       - name: Get artifact file name
         id: get-file-names
