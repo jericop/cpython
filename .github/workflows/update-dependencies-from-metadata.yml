@@ -197,7 +197,7 @@ jobs:
       arch: "${{ matrix.includes.arch }}"
       shouldCompile: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
       shouldTest: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' && needs.get-compile-and-test.outputs.should-test == 'true' }}
-      uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-${{ matrix.includes.target }}"
+      uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}-${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}-${{ matrix.includes.target }}"
 
   # Add in the checksum and URI fields to the metadata if the dependency was compiled
   update-metadata:
@@ -218,7 +218,7 @@ jobs:
       - name: Download artifact files
         uses: actions/download-artifact@v4
         with:
-          name: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-${{ matrix.includes.target }}"
+          name: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}-${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}-${{ matrix.includes.target }}"
 
       - name: Get artifact file name
         id: get-file-names
@@ -270,15 +270,15 @@ jobs:
           set -euo pipefail
           shopt -s inherit_errexit
 
-          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-metadata-file.json"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}" and .arch == "${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}")'] > $metadata_file_name
+          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}-${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}-metadata-file.json"
+          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}" and .arch == "${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}")'] > $metadata_file_name
           echo "file=$(echo $metadata_file_name)" >> "$GITHUB_OUTPUT"
           # TODO: remove these lines before PR
           echo "metadata_file_name=$metadata_file_name"
           echo "metadata.json file contents:"
           cat metadata.json
           echo "metadata_file_name $metadata_file_name file contents:"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}" and .arch == "${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}")']
+          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}" and .arch == "${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}")']
 
       - name: Update `checksum` and `uri` in metadata for ${{ matrix.includes.target }} ${{ matrix.includes.version }}
         if: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
