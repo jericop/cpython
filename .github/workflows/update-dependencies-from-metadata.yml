@@ -3,7 +3,8 @@ name: Update Dependencies From Metadata (Retrieve, Metadata, Compile, Test, Crea
 on:
   workflow_dispatch:
   schedule:
-    - cron: '20 03 * * *' # daily at 03:20 UTC
+    - cron: '57 13 * * *'  # daily at 13:57 UTC
+    # - cron: '* * * * *'  # every minute
 
 jobs:
   retrieve:
@@ -28,7 +29,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version-file: go.mod
 
       - name: Run Retrieve
         id: retrieve
@@ -196,7 +197,7 @@ jobs:
       arch: "${{ matrix.includes.arch }}"
       shouldCompile: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
       shouldTest: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' && needs.get-compile-and-test.outputs.should-test == 'true' }}
-      uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-${{ matrix.includes.target }}"
+      uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}-${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}-${{ matrix.includes.target }}"
 
   # Add in the checksum and URI fields to the metadata if the dependency was compiled
   update-metadata:
@@ -217,7 +218,7 @@ jobs:
       - name: Download artifact files
         uses: actions/download-artifact@v4
         with:
-          name: '${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-${{ matrix.includes.target }}'
+          name: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}-${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}-${{ matrix.includes.target }}"
 
       - name: Get artifact file name
         id: get-file-names
@@ -269,29 +270,35 @@ jobs:
           set -euo pipefail
           shopt -s inherit_errexit
 
-          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os }}-${{ matrix.includes.arch }}-metadata-file.json"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")'] > $metadata_file_name
+          metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}-${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}-metadata-file.json"
+          if [[ -z "${{ matrix.includes.os }}" && -z "${{ matrix.includes.arch }}" ]]; then
+            cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}")'] > $metadata_file_name
+          else
+            echo "multi-arch buildpack with os and arch specified"
+            cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")'] > $metadata_file_name
+          fi
           echo "file=$(echo $metadata_file_name)" >> "$GITHUB_OUTPUT"
           # TODO: remove these lines before PR
           echo "metadata_file_name=$metadata_file_name"
           echo "metadata.json file contents:"
           cat metadata.json
           echo "metadata_file_name $metadata_file_name file contents:"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")']
+          cat $metadata_file_name
 
       - name: Update `checksum` and `uri` in metadata for ${{ matrix.includes.target }} ${{ matrix.includes.version }}
         if: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
         # TODO: fix before PR
-        # uses: paketo-buildpacks/github-config/actions/dependency/update-metadata-json@main
-        uses: jericop/github-config/actions/dependency/update-metadata-json@mock-upload
+        uses: paketo-buildpacks/github-config/actions/dependency/update-metadata-json@main
+        # uses: jericop/github-config/actions/dependency/update-metadata-json@mock-upload
         with:
           version: ${{ matrix.includes.version }}
           target: ${{ matrix.includes.target }}
-          os: ${{ matrix.includes.os }}
-          arch: ${{ matrix.includes.arch }}
           checksum: ${{ steps.get-checksum.outputs.checksum }}
           uri: ${{ steps.upload.outputs.dependency-uri }}
           file: ${{ steps.dependency-metadata.outputs.file }}
+          # when os and arch are not set no filtering will occur based on os/arch
+          os: ${{ matrix.includes.os }}
+          arch: ${{ matrix.includes.arch }}
 
       - name: Upload modified metadata
         uses: actions/upload-artifact@v4
@@ -320,7 +327,7 @@ jobs:
       - name: Checkout Branch
         uses: paketo-buildpacks/github-config/actions/pull-request/checkout-branch@main
         with:
-          branch: automation/dependencies/update-from-metadata/multi-arch/deps-only
+          branch: automation/dependencies/update-from-metadata/multi-arch-verify
 
       - name: Make Temporary Artifact Directory
         id: make-outputdir
@@ -360,8 +367,8 @@ jobs:
       - name: Update dependencies from metadata.json
         id: update
         # TODO: fix before PR
-        # uses: paketo-buildpacks/github-config/actions/dependency/update-from-metadata@main
-        uses: jericop/github-config/actions/dependency/update-from-metadata@mock-upload
+        uses: paketo-buildpacks/github-config/actions/dependency/update-from-metadata@main
+        # uses: jericop/github-config/actions/dependency/update-from-metadata@mock-upload
         with:
           buildpack_toml_path: "${{ github.workspace }}/buildpack.toml"
           metadata_file_path: "${{ steps.make-outputdir.outputs.outputdir }}/metadata.json"
@@ -369,8 +376,8 @@ jobs:
       - name: Show git diff
         run: |
           git diff
-          echo 'buildpack.toml file contents:'
-          cat "${{ github.workspace }}/buildpack.toml"
+          echo "cat buildpack.toml"
+          cat buildpack.toml
 
       - name: Commit
         id: commit
@@ -381,11 +388,11 @@ jobs:
           keyid: ${{ secrets.PAKETO_BOT_GPG_SIGNING_KEY_ID }}
           key: ${{ secrets.PAKETO_BOT_GPG_SIGNING_KEY }}
 
-      - name: Push Branch 'automation/dependencies/update-from-metadata/multi-arch/deps-only'
+      - name: Push Branch 'automation/dependencies/update-from-metadata/multi-arch-verify'
         if: ${{ steps.commit.outputs.commit_sha != '' }}
         uses: paketo-buildpacks/github-config/actions/pull-request/push-branch@main
         with:
-          branch: automation/dependencies/update-from-metadata/multi-arch/deps-only
+          branch: automation/dependencies/update-from-metadata/multi-arch-verify
 
       - name: Open Pull Request
         if: ${{ steps.commit.outputs.commit_sha != '' }}
@@ -393,7 +400,8 @@ jobs:
         with:
           token: ${{ secrets.PAKETO_BOT_GITHUB_TOKEN }}
           title: "Updates buildpack.toml with ${{ steps.update.outputs.new-versions }}"
-          branch: automation/dependencies/update-from-metadata/multi-arch/deps-only
+          # branch: automation/buildpack.toml/update-from-metadata
+          branch: automation/dependencies/update-from-metadata/multi-arch-verify
 
   failure:
     name: Alert on Failure
