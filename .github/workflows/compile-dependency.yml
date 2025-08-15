@@ -61,6 +61,9 @@ jobs:
       id: compile-setup
       run: |
         echo "outputdir=$(mktemp -d)" >> "$GITHUB_OUTPUT"
+        # TODO: remove this
+        echo "inputs.os=${{ inputs.os }}"
+        echo "inputs.arch=${{ inputs.arch }}"
 
     - name: docker build
       id: docker-build
