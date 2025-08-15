@@ -271,14 +271,19 @@ jobs:
           shopt -s inherit_errexit
 
           metadata_file_name="${{ matrix.includes.target }}-${{ matrix.includes.version }}-${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}-${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}-metadata-file.json"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}" and .arch == "${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}")'] > $metadata_file_name
+          if [[ -z "${{ matrix.includes.os }}" && -z "${{ matrix.includes.arch }}" ]]; then
+            cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}")'] > $metadata_file_name
+          else
+            echo "multi-arch buildpack with os and arch specified"
+            cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os }}" and .arch == "${{ matrix.includes.arch }}")'] > $metadata_file_name
+          fi
           echo "file=$(echo $metadata_file_name)" >> "$GITHUB_OUTPUT"
           # TODO: remove these lines before PR
           echo "metadata_file_name=$metadata_file_name"
           echo "metadata.json file contents:"
           cat metadata.json
           echo "metadata_file_name $metadata_file_name file contents:"
-          cat metadata.json | jq -r ['.[] | select( .version == "${{ matrix.includes.version }}" and .target == "${{ matrix.includes.target }}" and .os == "${{ matrix.includes.os != '' && matrix.includes.os || 'linux' }}" and .arch == "${{ matrix.includes.arch != '' && matrix.includes.arch || 'amd64' }}")']
+          cat $metadata_file_name
 
       - name: Update `checksum` and `uri` in metadata for ${{ matrix.includes.target }} ${{ matrix.includes.version }}
         if: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
