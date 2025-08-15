@@ -73,6 +73,9 @@ jobs:
         echo "${{ (inputs.os == '' && inputs.arch == '') && '' || format('--platform {0}/{1}', inputs.os, inputs.arch) }}"
         echo "${{ (inputs.os == null && inputs.arch == null) && '' || format('--platform {0}/{1}', inputs.os, inputs.arch) }}"
 
+        echo "${{ (inputs.os != '' && inputs.arch != '') && format('--platform {0}/{1}', inputs.os, inputs.arch) || '' }}"
+        echo "${{ (inputs.os != null && inputs.arch != null) && format('--platform {0}/{1}', inputs.os, inputs.arch) || '' }}"
+
     - name: docker build
       id: docker-build
       env:
