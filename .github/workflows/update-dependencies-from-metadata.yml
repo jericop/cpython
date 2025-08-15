@@ -193,8 +193,8 @@ jobs:
     with:
       version: "${{ matrix.includes.version }}"
       target: "${{ matrix.includes.target }}"
-      os: "${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}"
-      arch: "${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}"
+      os: "${{ matrix.includes.os }}"
+      arch: "${{ matrix.includes.arch }}"
       shouldCompile: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' }}
       shouldTest: ${{ matrix.includes.checksum == '' && matrix.includes.uri == '' && needs.get-compile-and-test.outputs.should-test == 'true' }}
       uploadArtifactName: "${{ needs.retrieve.outputs.id }}-${{ matrix.includes.version }}-${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}-${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}-${{ matrix.includes.target }}"
