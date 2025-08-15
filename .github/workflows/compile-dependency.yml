@@ -69,7 +69,7 @@ jobs:
       if: ${{ inputs.shouldCompile == true || inputs.shouldCompile == 'true' }}
       uses: actions-hub/docker/cli@master
       with:
-        args: "build -t ${{ (inputs.os != '' && inputs.arch != '') && format('--platform {0}/{1}', inputs.os, inputs.arch) || '' }} compilation -f dependency/actions/compile/${{ inputs.target }}.Dockerfile dependency/actions/compile"
+        args: "build ${{ (inputs.os != '' && inputs.arch != '') && format('--platform {0}/{1}', inputs.os, inputs.arch) || '' }} -t compilation -f dependency/actions/compile/${{ inputs.target }}.Dockerfile dependency/actions/compile"
 
     - name: docker run
       id: docker-run
