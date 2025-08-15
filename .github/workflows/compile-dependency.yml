@@ -61,19 +61,6 @@ jobs:
       id: compile-setup
       run: |
         echo "outputdir=$(mktemp -d)" >> "$GITHUB_OUTPUT"
-        # TODO: remove this
-        echo "inputs.os='${{ inputs.os }}'"
-        echo "inputs.arch='${{ inputs.arch }}'"
-        echo "${{ (inputs.os == '') && 'os-empty' || 'os-is-not-empty' }}"
-        echo "${{ (inputs.os == null) && 'os-null' || 'os-is-not-null' }}"
-        echo "${{ (inputs.arch == '') && 'arch-empty' || 'arch-is-not-empty' }}"
-        echo "${{ (inputs.arch == null) && 'arch-null' || 'arch-is-not-null' }}"
-        echo "${{ (inputs.os == '' && inputs.arch == '') && 'os-arch-empty' || 'os-and-arch-not-empty' }}"
-        echo "${{ (inputs.os == null && inputs.arch == null) && 'os-arch-null' || 'os-and-arch-not-null' }}"
-        echo "${{ (inputs.os == '' && inputs.arch == '') && '' || format('--platform {0}/{1}', inputs.os, inputs.arch) }}"
-        echo "${{ (inputs.os == null && inputs.arch == null) && '' || format('--platform {0}/{1}', inputs.os, inputs.arch) }}"
-        echo "${{ (inputs.os != '' && inputs.arch != '') && format('--platform {0}/{1}', inputs.os, inputs.arch) || '' }}"
-        echo "${{ (inputs.os != null && inputs.arch != null) && format('--platform {0}/{1}', inputs.os, inputs.arch) || '' }}"
 
     - name: docker build
       id: docker-build
