@@ -288,11 +288,12 @@ jobs:
         with:
           version: ${{ matrix.includes.version }}
           target: ${{ matrix.includes.target }}
-          os: ${{ matrix.includes.os == '' && 'linux' || matrix.includes.os }}
-          arch: ${{ matrix.includes.arch == '' && 'amd64' || matrix.includes.arch }}
           checksum: ${{ steps.get-checksum.outputs.checksum }}
           uri: ${{ steps.upload.outputs.dependency-uri }}
           file: ${{ steps.dependency-metadata.outputs.file }}
+          # when os and arch are not set no filtering will occur based on os/arch
+          os: ${{ matrix.includes.os }}
+          arch: ${{ matrix.includes.arch }}
 
       - name: Upload modified metadata
         uses: actions/upload-artifact@v4
