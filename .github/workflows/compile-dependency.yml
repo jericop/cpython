@@ -62,8 +62,10 @@ jobs:
       run: |
         echo "outputdir=$(mktemp -d)" >> "$GITHUB_OUTPUT"
         # TODO: remove this
-        echo "inputs.os=${{ inputs.os }}"
-        echo "inputs.arch=${{ inputs.arch }}"
+        echo "inputs.os='${{ inputs.os }}'"
+        echo "inputs.arch='${{ inputs.arch }}'"
+        echo "${{ (inputs.os == '' && inputs.arch == '') && '' || format('--platform {0}/{1}', inputs.os, inputs.arch) }}"
+        echo "${{ (inputs.os == null && inputs.arch == null) && '' || format('--platform {0}/{1}', inputs.os, inputs.arch) }}"
 
     - name: docker build
       id: docker-build
