@@ -1,6 +1,6 @@
 module github.com/paketo-buildpacks/pipenv/retrieval
 
-go 1.23.0
+go 1.24.6
 
 toolchain go1.24.2
 
